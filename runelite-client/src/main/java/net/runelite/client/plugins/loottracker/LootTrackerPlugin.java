@@ -95,6 +95,7 @@ import net.runelite.http.api.loottracker.LootRecord;
 import net.runelite.http.api.loottracker.LootRecordType;
 import net.runelite.http.api.loottracker.LootTrackerClient;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.text.WordUtils;
 
 @PluginDescriptor(
 	name = "Loot Tracker",
@@ -136,6 +137,8 @@ public class LootTrackerPlugin extends Plugin
 
 	// Last man standing map regions
 	private static final Set<Integer> LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13914, 13915, 13916);
+
+	private static final Pattern pickpocketingRegex = Pattern.compile("You pick (the )?(?<target>.+)'s? pocket\\.");
 
 	@Inject
 	private ClientToolbar clientToolbar;
@@ -486,6 +489,15 @@ public class LootTrackerPlugin extends Plugin
 			return;
 		}
 
+		final Matcher pickpocketMatcher = pickpocketingRegex.matcher(message);
+		if (pickpocketMatcher.matches())
+		{
+			String pickpocketTarget = WordUtils.capitalize(pickpocketMatcher.group("target"));
+			eventType = pickpocketTarget + " (Pickpocket)";
+			takeInventorySnapshot();
+			return;
+		}
+
 		// Check if message is for a clue scroll reward
 		final Matcher m = CLUE_SCROLL_PATTERN.matcher(Text.removeTags(message));
 		if (m.find())
@@ -518,10 +530,16 @@ public class LootTrackerPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
+		if (eventType == null)
+		{
+			return;
+		}
+
 		if (CHEST_EVENT_TYPES.containsValue(eventType)
 			|| HERBIBOAR_EVENT.equals(eventType)
 			|| HESPORI_EVENT.equals(eventType)
-			|| GAUNTLET_EVENT.equals(eventType))
+			|| GAUNTLET_EVENT.equals(eventType)
+			|| eventType.endsWith("(Pickpocket)"))
 		{
 			if (event.getItemContainer() != client.getItemContainer(InventoryID.INVENTORY))
 			{
